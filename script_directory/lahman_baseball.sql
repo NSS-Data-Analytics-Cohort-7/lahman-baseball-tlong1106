@@ -72,7 +72,6 @@
     GROUP BY p.namefirst, p.namelast, c.schoolid
     ORDER BY SUM(s.salary) DESC;
 
-
 /*
    4. Using the fielding table, group players into three groups based on their position: label players
    with position OF as "Outfield", those with position "SS", "1B", "2B", and "3B" as "Infield", and those
@@ -80,7 +79,13 @@
    groups in 2016.
 */
 
-    SELECT CASE WHEN 
+    SELECT SUM(po),
+      CASE WHEN pos IN ('OF') THEN 'outfield'
+           WHEN pos IN ('SS','1B','2B','3B') THEN 'infield'
+           WHEN pos IN ('P','C') THEN 'battery' END AS player_position
+    FROM fielding
+    WHERE yearid = '2016'
+    GROUP BY player_position;
 
 /*
     5. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report
