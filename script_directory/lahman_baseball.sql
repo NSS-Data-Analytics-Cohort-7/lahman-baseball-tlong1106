@@ -79,7 +79,7 @@
    groups in 2016.
 */
 
-    SELECT SUM(po),
+    SELECT SUM(po) AS putouts,
       CASE WHEN pos IN ('OF') THEN 'outfield'
            WHEN pos IN ('SS','1B','2B','3B') THEN 'infield'
            WHEN pos IN ('P','C') THEN 'battery' END AS player_position
@@ -91,9 +91,47 @@
     5. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report
     to 2 decimal places. Do the same for home runs per game. Do you see any trends?
 */
+    SELECT g, teamid, yearid
+    FROM teams;
 
-    SELECT
+    -- Average strikeouts
+    SELECT --yearid,
+      AVG(so) AS avg_so
+    FROM teams --batting
+   -- GROUP BY yearid;
+    
+    -- Average homeruns
+    SELECT --yearid,
+      AVG(hr) AS avg_hr
+    FROM teams --batting
+    --GROUP BY yearid;
+    
+    -- Total games
+    SELECT COUNT(g) AS games
+    FROM teams --batting;
 
+    -- CTE for date buckets
+    /*WITH decades AS (
+      SELECT CASE WHEN yearid >= 1920 THEN '20s'
+                  WHEN yearid >= 1930 THEN '30s'
+                  WHEN yearid >= 1940 THEN '40s'
+                  WHEN yearid >= 1950 THEN '50s'
+                  WHEN yearid >= 1960 THEN '60s'
+                  WHEN yearid >= 1970 THEN '70s'
+                  WHEN yearid >= 1980 THEN '80s'
+                  WHEN yearid >= 1990 THEN '90s'
+                  WHEN yearid >= 2000 THEN '00s'
+                  WHEN yearid >= 2010 THEN '10s'
+                  END AS buckets
+      FROM teams --batting
+      WHERE yearid >=1920
+    )*/
+    
+    -- Simple decades calculation
+    SELECT ((yearid/10)*10) AS decade
+    FROM teams
+    WHERE ((yearid/10)*10) >= 1920;
+    
 /*
     6. Find the player who had the most success stealing bases in 2016, where success is measured as the
     percentage of stolen base attempts which are successful. (A stolen base attempt results either in a
