@@ -28,7 +28,7 @@
      p.height,
      a.g_all,
      t.name;
-   
+
 /*
     3. Find all players in the database who played at Vanderbilt University. Create a list showing each
        player’s first and lastnames as well as the total salary they earned in the major leagues. Sort
@@ -36,14 +36,9 @@
        money in the majors?
 */
 
-    -- a. Start by troubleshooting the tables: "orient yourself around the tables, data validate numbers,
-    --    double check 'this' vs.'that' and ask about consistency
-    -- b. Exploration: query complicated enough to get to heart of verification but simple enough to be
-    --    positive about certainty of result
-
     -- Original query, keep as it is: David Price / $81,851,296.00
     SELECT CONCAT(vandy.namefirst, ' ', vandy.namelast) AS name,
-      CAST(CAST(SUM(/*DISTINCT*/ s.salary) AS numeric) AS money) AS player_pay
+      CAST(CAST(SUM(s.salary) AS numeric) AS money) AS player_pay
     FROM (SELECT p.playerid,
             p.namefirst,
             p.namelast
@@ -60,6 +55,17 @@
     GROUP BY vandy.namefirst,
       vandy.namelast
     ORDER BY player_pay DESC;
+
+    -- Sanity check
+    SELECT 
+      namefirst,
+      namelast,
+      money(CAST(SUM(salary) AS numeric))
+    FROM people
+    JOIN salaries
+    USING (playerid)
+    WHERE namelast = 'Price' AND namefirst = 'David'
+    GROUP BY namelast, namefirst;
     
     -- Sarah's code with different answer: David Price / vandy / $245,553,888.00
     SELECT p.namefirst AS first, p.namelast AS last, c.schoolid, CAST(CAST(SUM(s.salary) AS NUMERIC) AS MONEY)
@@ -91,46 +97,26 @@
     5. Find the average number of strikeouts per game by decade since 1920. Round the numbers you report
     to 2 decimal places. Do the same for home runs per game. Do you see any trends?
 */
-    SELECT g, teamid, yearid
-    FROM teams;
-
-    -- Average strikeouts
-    SELECT --yearid,
-      AVG(so) AS avg_so
-    FROM teams --batting
-   -- GROUP BY yearid;
     
-    -- Average homeruns
-    SELECT --yearid,
-      AVG(hr) AS avg_hr
-    FROM teams --batting
-    --GROUP BY yearid;
-    
-    -- Total games
-    SELECT COUNT(g) AS games
-    FROM teams --batting;
-
-    -- CTE for date buckets
-    /*WITH decades AS (
-      SELECT CASE WHEN yearid >= 1920 THEN '20s'
-                  WHEN yearid >= 1930 THEN '30s'
-                  WHEN yearid >= 1940 THEN '40s'
-                  WHEN yearid >= 1950 THEN '50s'
-                  WHEN yearid >= 1960 THEN '60s'
-                  WHEN yearid >= 1970 THEN '70s'
-                  WHEN yearid >= 1980 THEN '80s'
-                  WHEN yearid >= 1990 THEN '90s'
-                  WHEN yearid >= 2000 THEN '00s'
-                  WHEN yearid >= 2010 THEN '10s'
-                  END AS buckets
-      FROM teams --batting
-      WHERE yearid >=1920
-    )*/
-    
-    -- Simple decades calculation
-    SELECT ((yearid/10)*10) AS decade
+    -- Average strikeouts per game per decade
+    SELECT 
+      ((yearid/10)*10) AS decade,
+      ROUND(AVG((CAST(so AS numeric)/CAST(g AS numeric))),2)*2 AS avg_so_per_g
     FROM teams
-    WHERE ((yearid/10)*10) >= 1920;
+    WHERE ((yearid/10)*10) >= 1920
+    GROUP BY decade
+    ORDER BY decade;
+
+    -- Average homeruns per game per decade
+    SELECT 
+      ((yearid/10)*10) AS decade,
+      --COUNT(g) AS num_games,
+      --SUM(so) AS num_so,
+      ROUND(AVG((CAST(hr AS numeric)/CAST(g AS numeric))),2)*2 AS avg_hr_per_g
+    FROM teams
+    WHERE ((yearid/10)*10) >= 1920
+    GROUP BY decade
+    ORDER BY decade;
     
 /*
     6. Find the player who had the most success stealing bases in 2016, where success is measured as the
@@ -139,6 +125,19 @@
 */
 
     SELECT
+      /*p.playerid,*/
+      CONCAT(p.namefirst, ' ', p.namelast) AS name,
+      /*SUM*/(b.sb) AS stolen_base,
+      /*SUM*/(b.cs) AS caught_steal,
+      /*SUM*/(b.sb + b.cs) AS total_attempt,
+      ROUND((CAST(b.sb AS numeric)/(CAST(b.sb AS numeric)+CAST(b.cs AS numeric))*100),2) AS success_percent
+    FROM batting AS b
+    JOIN people AS p
+    ON b.playerid = p.playerid
+    WHERE yearid = 2016 AND b.sb IS NOT NULL
+    GROUP BY p.playerid, p.namelast, p.namefirst, b.sb, b.cs
+    HAVING /*MAX*/(b.sb+b.cs) > 20
+    ORDER BY success_percent DESC;
 
 /*
     7. From 1970 – 2016, what is the largest number of wins for a team that did not win the world series? What is the smallest
@@ -147,7 +146,69 @@
     from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 */
 
+    -- Most wins without World Series win
     SELECT
+      yearid,
+      teamid,
+      /*MAX*/(w) AS win_count
+    FROM teams
+    WHERE yearid >= 1970 AND wswin = 'N'
+    GROUP BY yearid, teamid, w
+    LIMIT 1;
+    
+    -- Average number of games in 2001: 161.93
+    SELECT AVG(g)
+    FROM teams
+    WHERE yearid = 2001;
+    
+    -- Least wins with World Series win excluding 1981
+    SELECT
+      yearid,
+      teamid,
+      /*MIN*/(w) AS win_count
+    FROM teams
+    WHERE yearid >= 1970 AND wswin = 'Y' AND yearid != 1981
+    GROUP BY yearid, teamid, w
+    LIMIT 1;
+    
+    -- Average number of games in 2006: 107.23
+    SELECT AVG(g)
+    FROM teams
+    WHERE yearid = 2006;
+    
+    -- Combine winningist loser with losingist winner
+    WITH winningist_loser AS (SELECT
+                                yearid,
+                                teamid,
+                                w AS win_count
+                              FROM teams
+                              WHERE yearid >= 1970 AND wswin = 'N'
+                              GROUP BY yearid, teamid, w
+                              LIMIT 1),
+         losingist_winner AS 
+    
+    -- Average games per year query:
+    /*SELECT
+      yearid AS year,
+      AVG(g) AS avg_games
+    FROM teams
+    GROUP BY yearid
+    ORDER BY yearid DESC;*/
+    
+    -- Least wins with World Series win
+    /*SELECT
+      yearid,
+      teamid,
+      /*MIN*/(w) AS win_count
+    FROM teams
+    WHERE yearid >= 1970 AND wswin = 'Y'
+    GROUP BY yearid, teamid, w
+    LIMIT 1;*/
+    
+    -- Average number of games in 1981: 107.23
+    /*SELECT AVG(g)
+    FROM teams
+    WHERE yearid = 1981;*/
 
 /*
     8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per
