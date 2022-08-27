@@ -150,42 +150,53 @@
     SELECT
       yearid,
       teamid,
-      /*MAX*/(w) AS win_count
+      /*MAX*/(w)
     FROM teams
     WHERE yearid >= 1970 AND wswin = 'N'
     GROUP BY yearid, teamid, w
+    ORDER BY w DESC
     LIMIT 1;
     
     -- Average number of games in 2001: 161.93
-    SELECT AVG(g)
+    /*SELECT AVG(g)
     FROM teams
-    WHERE yearid = 2001;
+    WHERE yearid = 2001;*/
     
     -- Least wins with World Series win excluding 1981
     SELECT
       yearid,
       teamid,
-      /*MIN*/(w) AS win_count
+      /*MIN*/(w)
     FROM teams
     WHERE yearid >= 1970 AND wswin = 'Y' AND yearid != 1981
     GROUP BY yearid, teamid, w
+    ORDER BY w
     LIMIT 1;
     
     -- Average number of games in 2006: 107.23
-    SELECT AVG(g)
+    /*SELECT AVG(g)
     FROM teams
-    WHERE yearid = 2006;
+    WHERE yearid = 2006;*/
     
     -- Combine winningist loser with losingist winner
     WITH winningist_loser AS (SELECT
                                 yearid,
                                 teamid,
-                                w AS win_count
+                                w
                               FROM teams
                               WHERE yearid >= 1970 AND wswin = 'N'
                               GROUP BY yearid, teamid, w
                               LIMIT 1),
-         losingist_winner AS 
+         losingist_winner AS (SELECT
+                                yearid,
+                                teamid,
+                                w
+                              FROM teams
+                              WHERE yearid >= 1970 AND wswin = 'Y' AND yearid != 1981
+                              GROUP BY yearid, teamid, w
+                              LIMIT 1)
+                              
+    SELECT 
     
     -- Average games per year query:
     /*SELECT
