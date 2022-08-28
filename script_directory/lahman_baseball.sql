@@ -157,11 +157,6 @@
     ORDER BY w DESC
     LIMIT 1;
     
-    -- Average number of games in 2001: 161.93
-    /*SELECT AVG(g)
-    FROM teams
-    WHERE yearid = 2001;*/
-    
     -- Least wins with World Series win excluding 1981
     SELECT
       yearid,
@@ -173,38 +168,36 @@
     ORDER BY w
     LIMIT 1;
     
-    -- Average number of games in 2006: 107.23
-    /*SELECT AVG(g)
+    -- Table 1: Teams that won World Series and their wins
+    SELECT
+      yearid,
+      teamid,
+      w
     FROM teams
-    WHERE yearid = 2006;*/
+    WHERE wswin = 'Y' AND yearid >= 1970
+    ORDER BY yearid DESC;
     
-    -- Combine winningist loser with losingist winner
-    WITH winningist_loser AS (SELECT
-                                yearid,
-                                teamid,
-                                w
-                              FROM teams
-                              WHERE yearid >= 1970 AND wswin = 'N'
-                              GROUP BY yearid, teamid, w
-                              LIMIT 1),
-         losingist_winner AS (SELECT
-                                yearid,
-                                teamid,
-                                w
-                              FROM teams
-                              WHERE yearid >= 1970 AND wswin = 'Y' AND yearid != 1981
-                              GROUP BY yearid, teamid, w
-                              LIMIT 1)
-                              
-    SELECT 
+    -- Part 2: All teams season wins and World Series win status
+    SELECT
+      t.yearid,
+      t.teamid,
+      t.w,
+      CASE WHEN wswin = 'Y' THEN 'Won WS'
+           WHEN wswin = 'N' THEN 'Lost WS'
+           ELSE '???'
+           END AS ws_status
+    FROM teams AS t
+    INNER JOIN (
+      SELECT yearid, MAX(w) AS max_wins
+      FROM teams
+      WHERE yearid >= 1970
+      GROUP BY yearid)
+    FILTER
+    ON t.yearid = FILTER.yearid
+    AND t.w = FILTER.max_wins
+    ORDER BY yearid DESC;
     
-    -- Average games per year query:
-    /*SELECT
-      yearid AS year,
-      AVG(g) AS avg_games
-    FROM teams
-    GROUP BY yearid
-    ORDER BY yearid DESC;*/
+    -- JOIN, UNION attempt
     
     -- Least wins with World Series win
     /*SELECT
@@ -214,12 +207,16 @@
     FROM teams
     WHERE yearid >= 1970 AND wswin = 'Y'
     GROUP BY yearid, teamid, w
+    ORDER BY w
     LIMIT 1;*/
     
-    -- Average number of games in 1981: 107.23
-    /*SELECT AVG(g)
+    -- Average games per year query
+    /*SELECT
+      yearid AS year,
+      AVG(g) AS avg_games
     FROM teams
-    WHERE yearid = 1981;*/
+    GROUP BY yearid
+    ORDER BY yearid DESC;*/
 
 /*
     8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per
@@ -235,7 +232,36 @@
     Give their full name and the teams that they were managing when they won the award.
 */
 
+    -- Isolates manager's player ID and provides name of team they managed
+    WITH team_managers AS (SELECT
+                        playerid,
+                        name
+                      FROM managers
+                      JOIN teams
+                      USING (teamid)
+                      GROUP BY name, playerid)
+    --First, last names, league, year for managers that won TSN Manager of the Year
     SELECT
+      p.playerid,
+      p.namefirst,
+      p.namelast,
+      a.lgid,
+      a.yearid,
+      m.name
+    FROM awardsmanagers AS a
+    JOIN people AS p
+    USING (playerid)
+    JOIN team_managers AS m
+    USING (playerid)
+    WHERE awardid = 'TSN Manager of the Year' AND lgid IN ('AL', 'NL')
+    GROUP BY
+      p.playerid,
+      p.namefirst,
+      p.namelast,
+      a.lgid,
+      a.yearid,
+      m.name
+    ORDER BY yearid;
 
 /*
     10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the
