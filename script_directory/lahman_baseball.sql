@@ -177,7 +177,6 @@
     How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 */
 
-    
     -- World Series winners with most wins for the season
     WITH max_wins AS (SELECT
                         yearid,
@@ -356,11 +355,14 @@
                              hr
                            FROM teams
                            WHERE yearid = 2016)
+           decade_play AS (SELECT
+                             (SELECT DATE_PART('year', CAST(finalgame AS date)) FROM people) -
+                             (SELECT DATE_PART('year', CAST(debut AS date)) FROM people) AS career
+                           FROM people)
     SELECT
       rpy.namefirst,
       rpy.namelast
     FROM runs_per_year AS rpy
     JOIN runs_2016 AS r_16
     ON rpy.yearid = r_16.yearid AND rpy.max_hr = r_16.hr;
-    
     
