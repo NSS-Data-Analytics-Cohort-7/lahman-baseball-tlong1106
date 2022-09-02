@@ -1,11 +1,11 @@
 /*
    1. What range of years for baseball games played does the provided database cover?
 */
-
-   SELECT MIN(year),
-     MAX(year),
-     MAX(year) - MIN(year) AS year_range
-   FROM homegames;
+   
+   SELECT MIN(yearid),
+     MAX(yearid),
+     MAX(yearid) - MIN(yearid) AS year_range
+   FROM teams;
 
 /*
    2. Find the name and height of the shortest player in the database. How many games did he play in? What
@@ -66,17 +66,6 @@
     USING (playerid)
     WHERE namelast = 'Price' AND namefirst = 'David'
     GROUP BY namelast, namefirst;
-    
-    -- Sarah's code with different answer: David Price / vandy / $245,553,888.00
-    SELECT p.namefirst AS first, p.namelast AS last, c.schoolid, CAST(CAST(SUM(s.salary) AS NUMERIC) AS MONEY)
-    FROM collegeplaying AS c
-    JOIN people AS p
-    USING (playerid)
-    JOIN salaries AS s
-    USING (playerid)
-    WHERE schoolid = 'vandy'
-    GROUP BY p.namefirst, p.namelast, c.schoolid
-    ORDER BY SUM(s.salary) DESC;
 
 /*
    4. Using the fielding table, group players into three groups based on their position: label players
@@ -125,18 +114,17 @@
 */
 
     SELECT
-      /*p.playerid,*/
       CONCAT(p.namefirst, ' ', p.namelast) AS name,
-      /*SUM*/(b.sb) AS stolen_base,
-      /*SUM*/(b.cs) AS caught_steal,
-      /*SUM*/(b.sb + b.cs) AS total_attempt,
+      b.sb AS stolen_base,
+      b.cs AS caught_steal,
+      (b.sb + b.cs) AS total_attempt,
       ROUND((CAST(b.sb AS numeric)/(CAST(b.sb AS numeric)+CAST(b.cs AS numeric))*100),2) AS success_percent
     FROM batting AS b
     JOIN people AS p
     ON b.playerid = p.playerid
     WHERE yearid = 2016 AND b.sb IS NOT NULL
     GROUP BY p.playerid, p.namelast, p.namefirst, b.sb, b.cs
-    HAVING /*MAX*/(b.sb+b.cs) > 20
+    HAVING (b.sb+b.cs) > 20
     ORDER BY success_percent DESC;
 
 /*
@@ -160,49 +148,72 @@
     SELECT
       yearid,
       teamid,
-      /*MIN*/(w)
+      w
     FROM teams
     WHERE yearid >= 1970 AND wswin = 'Y' AND yearid != 1981
     GROUP BY yearid, teamid, w
     ORDER BY w
     LIMIT 1;
     
-/*    
-How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
+/*  -- Sanity Check    
+    -- Average games per season
+    SELECT yearid, AVG(g) 
+    FROM teams
+    WHERE yearid BETWEEN 1970 AND 2016
+    GROUP BY yearid
+    ORDER BY yearid;
+    
+    -- Smallest number of wins for a team that did win World Series
+    SELECT
+      yearid,
+      teamid,
+      /*MIN*/(w)
+    FROM teams
+    WHERE yearid >= 1970 AND wswin = 'Y'
+    GROUP BY yearid, teamid, w
+    ORDER BY w
+    LIMIT 1;
+    
+    How often from 1970 – 2016 was it the case that a team with the most wins also won the world series? What percentage of the time?
 */
 
-    -- Final Query
-    WITH max_wins AS (SELECT 
+    
+    -- World Series winners with most wins for the season
+    WITH max_wins AS (SELECT
                         yearid,
-                        MAX(w)
+                        MAX(w) AS max_w
                       FROM teams
                       WHERE yearid BETWEEN 1970 AND 2016 AND yearid <> 1994
                       GROUP BY yearid
                       ORDER BY yearid DESC)
     SELECT
-      name,
-      MAX(w)
-    FROM teams
-    JOIN max_wins
-    USING (yearid)
-    WHERE yearid BETWEEN 1970 AND 2016 AND wswin = 'Y'
-    GROUP BY name
-    ORDER BY MAX(w) DESC;
+      t.name,
+      t.w,
+      mw.max_w
+    FROM teams AS t
+    JOIN max_wins AS mw
+    ON t.yearid = mw.yearid AND t.w = mw.max_w
+    WHERE t.yearid BETWEEN 1970 AND 2016 AND wswin = 'Y'
+    GROUP BY t.name, t.w, mw.max_w
+    ORDER BY mw.max_w DESC;
     
-    -- Teams with most wins per year
-    WITH max_wins AS (SELECT 
-                        DISTINCT yearid,
+/*    
+    -- Sanity check
+    -- Teams with most wins per year (46)
+    WITH max_wins AS (SELECT   
+                      yearid,
                         MAX(w) AS m_w
                       FROM teams
                       WHERE yearid BETWEEN 1970 AND 2016 AND yearid <> 1994
                       GROUP BY yearid
                       ORDER BY yearid DESC)
     
-    -- Teams that won World Series
-    SELECT yearid, name
+    -- Teams that won World Series (46)
+    SELECT yearid, name, w
     FROM teams
     WHERE wswin = 'Y' AND yearid BETWEEN 1970 AND 2016
     ORDER BY yearid DESC;
+*/
 
 /*
     8. Using the attendance figures from the homegames table, find the teams and parks which had the top 5 average attendance per
@@ -211,45 +222,86 @@ How often from 1970 – 2016 was it the case that a team with the most wins also
     attendance.
 */
 
--- CTE practice to JOIN these tables
-
-    -- Top 5 average attendance
+    WITH m_attend AS (SELECT
+                        park_name,
+                        team,
+                        (attendance/games) AS avg_attendance
+                      FROM parks AS p
+                      JOIN homegames AS h
+                      USING (park)
+                      WHERE games >= 10 AND year = 2016
+                      GROUP BY
+                         park_name,
+                         team,
+                         avg_attendance
+                      ORDER BY avg_attendance DESC
+                      LIMIT 5),
+         l_attend AS (SELECT
+                          park_name,
+                          team,
+                          (attendance/games) AS avg_attendance
+                        FROM parks AS p
+                        JOIN homegames AS h
+                        USING (park)
+                        WHERE games >= 10 AND year = 2016
+                        GROUP BY
+                          park_name,
+                          team,
+                          avg_attendance
+                        ORDER BY avg_attendance
+                        LIMIT 5)
     SELECT
       park_name,
       team,
-      (attendance/games) AS avg_attendance
-    FROM parks AS p
-    JOIN homegames AS h
-    USING (park)
-    WHERE games > 10 AND year = 2016
-    GROUP BY
-      park_name,
-      team,
       avg_attendance
-    ORDER BY avg_attendance DESC
-    LIMIT 5;
-
-    -- Bottom 5 average attendance
+    FROM m_attend
+    UNION
     SELECT
       park_name,
       team,
-      (attendance/games) AS avg_attendance
-    FROM parks AS p
-    JOIN homegames AS h
-    USING (park)
-    WHERE games > 10 AND year = 2016
-    GROUP BY
-      park_name,
-      team,
       avg_attendance
-    ORDER BY avg_attendance
-    LIMIT 5;
+    FROM l_attend
+    ORDER BY avg_attendance DESC;
 
 /*
     9. Which managers have won the TSN Manager of the Year award in both the National League (NL) and the American League (AL)?
     Give their full name and the teams that they were managing when they won the award.
 */
 
+    WITH al_winner AS (SELECT *
+                       FROM awardsmanagers
+                       WHERE awardid = 'TSN Manager of the Year' AND lgid = 'AL'),
+         nl_winner AS (SELECT *
+                       FROM awardsmanagers
+                       WHERE awardid = 'TSN Manager of the Year' AND lgid = 'NL'),
+      manager_team AS (SELECT
+                         playerid,
+                         name
+                       FROM people
+                       JOIN appearances
+                       USING (playerid)
+                       JOIN teams AS t
+                       USING (teamid)
+                       WHERE t.lgid IN ('AL', 'NL'))
+    SELECT
+      namefirst,
+      namelast,
+      teamid
+    FROM people
+    JOIN al_winner
+    USING (playerid)
+    JOIN nl_winner
+    USING (playerid)
+    JOIN managers
+    USING (playerid)
+    WHERE al_winner.playerid = nl_winner.playerid
+    GROUP BY
+      namelast,
+      namefirst,
+      teamid;
+
+/*    
+    -- All coaches that won TSN Manager of the Year for National League (NL) and American League (AL)
     WITH team_managers AS (SELECT
                             ma.yearid,
                             playerid,
@@ -280,6 +332,7 @@ How often from 1970 – 2016 was it the case that a team with the most wins also
       a.yearid,
       name
     ORDER BY yearid DESC;
+*/
 
 /*
     10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the
@@ -287,4 +340,27 @@ How often from 1970 – 2016 was it the case that a team with the most wins also
     number of home runs they hit in 2016.
 */
 
+    WITH runs_per_year AS (SELECT
+                             yearid,
+                             namefirst,
+                             namelast,
+                           MAX(hr) AS max_hr
+                           FROM people
+                           JOIN appearances
+                           USING (playerid)
+                           JOIN teams
+                           USING (yearid)
+                           GROUP BY namelast, namefirst, yearid),
+             runs_2016 AS (SELECT
+                             yearid,
+                             hr
+                           FROM teams
+                           WHERE yearid = 2016)
     SELECT
+      rpy.namefirst,
+      rpy.namelast
+    FROM runs_per_year AS rpy
+    JOIN runs_2016 AS r_16
+    ON rpy.yearid = r_16.yearid AND rpy.max_hr = r_16.hr;
+    
+    
